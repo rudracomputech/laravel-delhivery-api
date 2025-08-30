@@ -5,7 +5,7 @@ A comprehensive Laravel package for integrating with Delhivery B2C API.
 ## Installation
 
 ```bash
-composer require rudracomputech/delhivery-laravel
+composer require rudracomputech/laravel-delhivery-api
 ```
 
 ## Configuration
@@ -155,5 +155,6 @@ try {
 ```
 
 ## License
+
 
 MIT
