@@ -18,56 +18,91 @@ class DelhiveryClient
   protected array $config;
   protected string $baseUrl;
 
-  public OrderService $orders;
-  public TrackingService $tracking;
-  public WaybillService $waybills;
-  public PickupService $pickups;
-  public PinCodeService $pinCodes;
+  protected OrderService $orders;
+  protected TrackingService $tracking;
+  protected WaybillService $waybills;
+  protected PickupService $pickups;
+  protected PinCodeService $pinCodes;
 
   public function __construct(array $config)
   {
     $this->config = $config;
-    $this->baseUrl = $config['base_urls'][$config['environment']] ?? $config['base_urls']['production'];
+    $this->baseUrl = $config['base_urls'][$config['environment']]
+      ?? $config['base_urls']['production'];
 
     $this->client = new Client([
       'base_uri' => $this->baseUrl,
-      'timeout' => $config['timeout'] ?? 30,
-      'headers' => [
+      'timeout'  => $config['timeout'] ?? 30,
+      'headers'  => [
         'Authorization' => 'Token ' . $config['api_token'],
-        'Content-Type' => 'application/json',
-        'Accept' => 'application/json',
+        'Content-Type'  => 'application/json',
+        'Accept'        => 'application/json',
       ],
     ]);
 
     $this->initializeServices();
   }
 
+  /**
+   * Initialize all service classes.
+   */
   protected function initializeServices(): void
   {
-    $this->orders = new OrderService($this);
+    $this->orders   = new OrderService($this);
     $this->tracking = new TrackingService($this);
     $this->waybills = new WaybillService($this);
-    $this->pickups = new PickupService($this);
+    $this->pickups  = new PickupService($this);
     $this->pinCodes = new PinCodeService($this);
   }
 
+  /**
+   * Accessors for services
+   */
+  public function orders(): OrderService
+  {
+    return $this->orders;
+  }
+
+  public function tracking(): TrackingService
+  {
+    return $this->tracking;
+  }
+
+  public function waybills(): WaybillService
+  {
+    return $this->waybills;
+  }
+
+  public function pickups(): PickupService
+  {
+    return $this->pickups;
+  }
+
+  public function pinCodes(): PinCodeService
+  {
+    return $this->pinCodes;
+  }
+
+  /**
+   * Perform an API request with retries and logging.
+   */
   public function makeRequest(string $method, string $endpoint, array $options = []): array
   {
-    $retries = 0;
+    $retries    = 0;
     $maxRetries = $this->config['retry_times'] ?? 3;
 
     while ($retries < $maxRetries) {
       try {
         if ($this->config['log_enabled'] ?? true) {
           Log::info('Delhivery API Request', [
-            'method' => $method,
+            'method'   => $method,
             'endpoint' => $endpoint,
-            'options' => $options,
+            'options'  => $options,
           ]);
         }
 
         $response = $this->client->request($method, $endpoint, $options);
-        $body = json_decode($response->getBody()->getContents(), true);
+        $body     = json_decode($response->getBody()->getContents(), true);
 
         if ($this->config['log_enabled'] ?? true) {
           Log::info('Delhivery API Response', [
@@ -83,23 +118,26 @@ class DelhiveryClient
         if ($retries >= $maxRetries) {
           Log::error('Delhivery API Error', [
             'endpoint' => $endpoint,
-            'error' => $e->getMessage(),
+            'error'    => $e->getMessage(),
           ]);
 
           throw new DelhiveryException(
             'API request failed: ' . $e->getMessage(),
             $e->getCode(),
-            null
+            $e
           );
         }
 
-        sleep(1);
+        sleep(1); // simple backoff
       }
     }
 
     throw new DelhiveryException('Max retries exceeded');
   }
 
+  /**
+   * Helpers
+   */
   public function getConfig(): array
   {
     return $this->config;
